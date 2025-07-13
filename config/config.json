@@ -1,0 +1,31 @@
+{
+    "Input": {
+        "Storage": {
+            "Type": "b2",
+            "Config": {
+                "BucketName": "sayana-photos",
+                "Region": "eu-central-003",
+                "Prefix": "full/",
+                "KeyID": "${B2_KEY_ID}",
+                "ApplicationKey": "${B2_APPLICATION_KEY}"
+            }
+        }
+    },
+    "Output": {
+        "Storage": {
+            "Type": "b2",
+            "Config": {
+                "BucketName": "sayana-photos",
+                "Region": "eu-central-003",
+                "Prefix": "thumbnails/",
+                "KeyID": "${B2_KEY_ID}",
+                "ApplicationKey": "${B2_APPLICATION_KEY}"
+            }
+        },
+        "Quality": 80,
+        "Size": {
+            "MaxWidth": 1280,
+            "MaxHeight": 0
+        }
+    }
+}
