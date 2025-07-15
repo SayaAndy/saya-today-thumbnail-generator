@@ -6,6 +6,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"log/slog"
 	"strings"
 
 	"golang.org/x/image/draw"
@@ -41,9 +42,12 @@ func (p *WebpProcessor) DeductOutputPath(inputPath string) string {
 	return strings.Join(pathParts, ".")
 }
 
-func (p *WebpProcessor) Process(contentType string, reader io.Reader, writer io.Writer) error {
+func (p *WebpProcessor) Process(contentType string, reader io.ReadCloser, writer io.WriteCloser) error {
 	var src image.Image
 	var err error
+
+	defer reader.Close()
+	defer writer.Close()
 
 	switch contentType {
 	case "image/jpeg":
@@ -56,6 +60,8 @@ func (p *WebpProcessor) Process(contentType string, reader io.Reader, writer io.
 		if err != nil {
 			return fmt.Errorf("decode png: %w", err)
 		}
+	default:
+		return fmt.Errorf("unsupported content type: %s", contentType)
 	}
 
 	opts, err := encoder.NewLossyEncoderOptions(encoder.PresetDefault, float32(p.quality))
@@ -63,8 +69,16 @@ func (p *WebpProcessor) Process(contentType string, reader io.Reader, writer io.
 		return fmt.Errorf("create webp encoder options: %w", err)
 	}
 
-	xCoef := p.maxWidth / src.Bounds().Max.X
-	yCoef := p.maxHeight / src.Bounds().Max.Y
+	xCoef := float64(p.maxWidth) / float64(src.Bounds().Max.X)
+	if p.maxWidth == 0 {
+		xCoef = 1
+	}
+	yCoef := float64(p.maxHeight) / float64(src.Bounds().Max.Y)
+	if p.maxHeight == 0 {
+		yCoef = 1
+	}
+	slog.Debug("calculated coefficients", slog.Float64("x_coef", xCoef), slog.Float64("y_coef", yCoef))
+
 	if xCoef > 1 && yCoef > 1 {
 		return webp.Encode(writer, src, opts)
 	}
@@ -74,7 +88,7 @@ func (p *WebpProcessor) Process(contentType string, reader io.Reader, writer io.
 		minCoef = yCoef
 	}
 
-	dst := image.NewRGBA(image.Rect(0, 0, src.Bounds().Max.X*xCoef, src.Bounds().Max.Y*xCoef))
+	dst := image.NewRGBA(image.Rect(0, 0, int(float64(src.Bounds().Max.X)*minCoef), int(float64(src.Bounds().Max.Y)*minCoef)))
 	draw.CatmullRom.Scale(dst, dst.Rect, src, src.Bounds(), draw.Over, nil)
 
 	return webp.Encode(writer, dst, opts)

@@ -21,7 +21,7 @@
         "Config": {
             "Quality": 80,
             "Size": {
-                "MaxWidth": 1280,
+                "MaxWidth": 800,
                 "MaxHeight": 0
             }
         }

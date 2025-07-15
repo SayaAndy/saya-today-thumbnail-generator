@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Backblaze/blazer/b2"
@@ -72,7 +73,7 @@ func (c *B2InputClient) Scan() ([]string, error) {
 			}
 		}
 
-		filePaths = append(filePaths, name)
+		filePaths = append(filePaths, strings.TrimPrefix(name, c.prefix))
 	}
 
 	if err := iter.Err(); err != nil {
@@ -82,8 +83,8 @@ func (c *B2InputClient) Scan() ([]string, error) {
 	return filePaths, nil
 }
 
-func (c *B2InputClient) ReadMetadata(path string) (map[string]string, error) {
-	obj := c.bucket.Object(path)
+func (c *B2InputClient) ReadMetadata(path string) (*MetadataStruct, error) {
+	obj := c.bucket.Object(c.prefix + path)
 	if obj == nil {
 		return nil, fmt.Errorf("object not found in B2 bucket")
 	}
@@ -93,37 +94,38 @@ func (c *B2InputClient) ReadMetadata(path string) (map[string]string, error) {
 		return nil, fmt.Errorf("get attributes for object: %w", err)
 	}
 
-	metadata := attrs.Info
-	metadata["Name"] = attrs.Name
-	metadata["Size"] = fmt.Sprintf("%d", attrs.Size)
-	metadata["ContentType"] = attrs.ContentType
-	metadata["LastModified"] = attrs.LastModified.Format("2006-01-02T15:04:05Z")
-	metadata["SHA1"] = attrs.SHA1
-	metadata["UploadTimestamp"] = attrs.UploadTimestamp.Format("2006-01-02T15:04:05Z")
+	metadata := MetadataStruct{
+		Name:         attrs.Name,
+		StorageType:  "b2",
+		Hash:         attrs.SHA1,
+		ContentType:  attrs.ContentType,
+		FirstCreated: attrs.UploadTimestamp,
+		LastModified: attrs.LastModified,
+		Misc:         attrs.Info,
+	}
+	metadata.Misc["Size"] = strconv.FormatInt(attrs.Size, 10)
 
 	switch attrs.Status {
 	case b2.Uploaded:
-		metadata["Status"] = "Uploaded"
+		metadata.Misc["b2-status"] = "Uploaded"
 	case b2.Folder:
-		metadata["Status"] = "Folder"
+		metadata.Misc["b2-status"] = "Folder"
 	case b2.Hider:
-		metadata["Status"] = "Hider"
+		metadata.Misc["b2-status"] = "Hider"
 	case b2.Started:
-		metadata["Status"] = "Started"
+		metadata.Misc["b2-status"] = "Started"
 	default:
-		metadata["Status"] = "Unknown"
+		metadata.Misc["b2-status"] = "Unknown"
 	}
 
-	return metadata, nil
+	return &metadata, nil
 }
 
-func (c *B2InputClient) GetReader(path string) (io.Reader, error) {
-	obj := c.bucket.Object(path)
+func (c *B2InputClient) GetReader(path string) (io.ReadCloser, error) {
+	obj := c.bucket.Object(c.prefix + path)
 	if obj == nil {
 		return nil, fmt.Errorf("failed to reference object in B2 bucket")
 	}
 
-	reader := obj.NewReader(context.Background())
-
-	return reader, nil
+	return obj.NewReader(context.Background()), nil
 }

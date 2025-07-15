@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/Backblaze/blazer/b2"
 	"github.com/SayaAndy/saya-today-thumbnail-generator/config"
+	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/client/input"
 )
 
 var _ OutputClient = (*B2OutputClient)(nil)
@@ -36,16 +38,19 @@ func NewB2OutputClient(cfg *config.OutputConfig) (*B2OutputClient, error) {
 	return &B2OutputClient{b2cl: b2cl, bucket: bucket, prefix: b2cfg.Prefix}, nil
 }
 
-func (c *B2OutputClient) GetWriter(path string) (io.Writer, error) {
+func (c *B2OutputClient) GetWriter(path string, inputMetadata *input.MetadataStruct) (io.WriteCloser, error) {
 	obj := c.bucket.Object(c.prefix + path)
 	if obj == nil {
 		return nil, fmt.Errorf("failed to reference object in B2 bucket")
 	}
 
-	return obj.NewWriter(context.Background()), nil
+	attrs := &b2.Attrs{Info: make(map[string]string)}
+	attrs.Info["sha1-original"] = inputMetadata.Hash
+
+	return obj.NewWriter(context.Background(), b2.WithAttrsOption(attrs)), nil
 }
 
-func (c *B2OutputClient) ReadMetadata(path string) (map[string]string, error) {
+func (c *B2OutputClient) ReadMetadata(path string) (*MetadataStruct, error) {
 	obj := c.bucket.Object(c.prefix + path)
 	if obj == nil {
 		return nil, fmt.Errorf("failed to reference object in B2 bucket")
@@ -56,40 +61,44 @@ func (c *B2OutputClient) ReadMetadata(path string) (map[string]string, error) {
 		return nil, fmt.Errorf("get attributes for object: %w", err)
 	}
 
-	metadata := attrs.Info
-	metadata["Name"] = attrs.Name
-	metadata["Size"] = fmt.Sprintf("%d", attrs.Size)
-	metadata["ContentType"] = attrs.ContentType
-	metadata["LastModified"] = attrs.LastModified.Format("2006-01-02T15:04:05Z")
-	metadata["SHA1"] = attrs.SHA1
-	metadata["UploadTimestamp"] = attrs.UploadTimestamp.Format("2006-01-02T15:04:05Z")
+	metadata := MetadataStruct{
+		Name:         attrs.Name,
+		StorageType:  "b2",
+		Hash:         attrs.SHA1,
+		HashOriginal: attrs.Info["sha1-original"],
+		ContentType:  attrs.ContentType,
+		FirstCreated: attrs.UploadTimestamp,
+		LastModified: attrs.LastModified,
+		Misc:         attrs.Info,
+	}
+	metadata.Misc["Size"] = strconv.FormatInt(attrs.Size, 10)
 
 	switch attrs.Status {
 	case b2.Uploaded:
-		metadata["Status"] = "Uploaded"
+		metadata.Misc["b2-status"] = "Uploaded"
 	case b2.Folder:
-		metadata["Status"] = "Folder"
+		metadata.Misc["b2-status"] = "Folder"
 	case b2.Hider:
-		metadata["Status"] = "Hider"
+		metadata.Misc["b2-status"] = "Hider"
 	case b2.Started:
-		metadata["Status"] = "Started"
+		metadata.Misc["b2-status"] = "Started"
 	default:
-		metadata["Status"] = "Unknown"
+		metadata.Misc["b2-status"] = "Unknown"
 	}
 
-	return metadata, nil
+	return &metadata, nil
 }
 
-func (c *B2OutputClient) IsMissing(path string) (bool, error) {
+func (c *B2OutputClient) IsMissing(path string) bool {
 	obj := c.bucket.Object(c.prefix + path)
 	if obj == nil {
-		return false, fmt.Errorf("failed to reference object in B2 bucket")
+		return true
 	}
 
 	attrs, err := obj.Attrs(context.Background())
 	if err != nil {
-		return true, fmt.Errorf("get attributes for object: %w", err)
+		return true
 	}
 
-	return attrs.Status == b2.Hider, nil
+	return attrs.Status == b2.Hider
 }
