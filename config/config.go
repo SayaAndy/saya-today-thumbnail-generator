@@ -9,18 +9,14 @@ import (
 )
 
 type Config struct {
-	Input  InputConfig  `json:"Input" validate:"required"`
-	Output OutputConfig `json:"Output" validate:"required"`
+	Input     InputConfig     `json:"Input" validate:"required"`
+	Processor ProcessorConfig `json:"Processor" validate:"required"`
+	Output    OutputConfig    `json:"Output" validate:"required"`
 }
 
 type InputConfig struct {
-	Storage StorageConfig `json:"Storage" validate:"required"`
-}
-
-type OutputConfig struct {
-	Storage StorageConfig `json:"Storage" validate:"required"`
-	Quality int           `json:"Quality" validate:"required,min=1,max=100"`
-	Size    SizeConfig    `json:"Size" validate:"required"`
+	Storage         StorageConfig `json:"Storage" validate:"required"`
+	KnownExtensions []string      `json:"KnownExtensions" validate:"required,min=0,dive,min=1"`
 }
 
 type StorageConfig struct {
@@ -46,13 +42,13 @@ func (sc *StorageConfig) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(tmp.Config, &b2Config); err != nil {
 			return fmt.Errorf("unmarshal B2Config: %w", err)
 		}
-		sc.Config = b2Config
+		sc.Config = &b2Config
 	case "local":
 		var localConfig LocalConfig
 		if err := json.Unmarshal(tmp.Config, &localConfig); err != nil {
 			return fmt.Errorf("unmarshal LocalConfig: %w", err)
 		}
-		sc.Config = localConfig
+		sc.Config = &localConfig
 	default:
 		return fmt.Errorf("unsupported storage type: %s", tmp.Type)
 	}
@@ -72,9 +68,49 @@ type LocalConfig struct {
 	Path string `json:"Path" validate:"required,min=1"`
 }
 
+type ProcessorConfig struct {
+	Type   string `json:"Type" validate:"required,oneof=webp"`
+	Config any    `json:"Config" validate:"required"`
+}
+
+func (pc *ProcessorConfig) UnmarshalJSON(data []byte) error {
+	var tmp struct {
+		Type   string          `json:"Type"`
+		Config json.RawMessage `json:"Config"`
+	}
+
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return err
+	}
+
+	pc.Type = tmp.Type
+
+	switch tmp.Type {
+	case "webp":
+		var webpConfig WebpConfig
+		if err := json.Unmarshal(tmp.Config, &webpConfig); err != nil {
+			return fmt.Errorf("unmarshal WebpConfig: %w", err)
+		}
+		pc.Config = &webpConfig
+	default:
+		return fmt.Errorf("unsupported storage type: %s", tmp.Type)
+	}
+
+	return nil
+}
+
+type WebpConfig struct {
+	Quality int        `json:"Quality" validate:"required,min=1,max=100"`
+	Size    SizeConfig `json:"Size" validate:"required"`
+}
+
 type SizeConfig struct {
 	MaxWidth  int `json:"MaxWidth" validate:"required,min=0"`
 	MaxHeight int `json:"MaxHeight" validate:"required,min=0"`
+}
+
+type OutputConfig struct {
+	Storage StorageConfig `json:"Storage" validate:"required"`
 }
 
 func LoadConfig(path string, config *Config) error {

@@ -9,6 +9,21 @@
                 "KeyID": "${B2_KEY_ID}",
                 "ApplicationKey": "${B2_APPLICATION_KEY}"
             }
+        },
+        "KnownExtensions": [
+            "jpg",
+            "jpeg",
+            "png"
+        ]
+    },
+    "Processor": {
+        "Type": "webp",
+        "Config": {
+            "Quality": 80,
+            "Size": {
+                "MaxWidth": 1280,
+                "MaxHeight": 0
+            }
         }
     },
     "Output": {
@@ -21,11 +36,6 @@
                 "KeyID": "${B2_KEY_ID}",
                 "ApplicationKey": "${B2_APPLICATION_KEY}"
             }
-        },
-        "Quality": 80,
-        "Size": {
-            "MaxWidth": 1280,
-            "MaxHeight": 0
         }
     }
 }
