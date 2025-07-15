@@ -1,4 +1,6 @@
 {
+    "ForceRewrite": false,
+    "MaxConcurrentJobs": 4,
     "Input": {
         "Storage": {
             "Type": "b2",

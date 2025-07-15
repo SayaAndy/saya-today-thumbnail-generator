@@ -9,9 +9,11 @@ import (
 )
 
 type Config struct {
-	Input     InputConfig     `json:"Input" validate:"required"`
-	Processor ProcessorConfig `json:"Processor" validate:"required"`
-	Output    OutputConfig    `json:"Output" validate:"required"`
+	Input             InputConfig     `json:"Input" validate:"required"`
+	Processor         ProcessorConfig `json:"Processor" validate:"required"`
+	Output            OutputConfig    `json:"Output" validate:"required"`
+	MaxConcurrentJobs int             `json:"MaxConcurrentJobs" validate:"required,min=1"`
+	ForceRewrite      bool            `json:"ForceRewrite" validate:"required"`
 }
 
 type InputConfig struct {

@@ -88,7 +88,7 @@ func (p *WebpProcessor) Process(contentType string, reader io.ReadCloser, writer
 		minCoef = yCoef
 	}
 
-	dst := image.NewRGBA(image.Rect(0, 0, int(float64(src.Bounds().Max.X)*minCoef), int(float64(src.Bounds().Max.Y)*minCoef)))
+	dst := image.NewRGBA(image.Rect(0, 0, int(float64(src.Bounds().Max.X)*minCoef+0.5), int(float64(src.Bounds().Max.Y)*minCoef+0.5)))
 	draw.CatmullRom.Scale(dst, dst.Rect, src, src.Bounds(), draw.Over, nil)
 
 	return webp.Encode(writer, dst, opts)
