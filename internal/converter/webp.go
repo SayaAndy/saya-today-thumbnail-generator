@@ -1,4 +1,4 @@
-package processor
+package converter
 
 import (
 	"fmt"
@@ -16,24 +16,24 @@ import (
 	"github.com/kolesa-team/go-webp/webp"
 )
 
-var _ Processor = (*WebpProcessor)(nil)
+var _ Converter = (*WebpConverter)(nil)
 
-type WebpProcessor struct {
+type WebpConverter struct {
 	maxWidth  int
 	maxHeight int
 	quality   int
 }
 
-func NewWebpProcessor(cfg *config.ProcessorConfig) (*WebpProcessor, error) {
+func NewWebpConverter(cfg *config.ConverterConfig) (*WebpConverter, error) {
 	if cfg.Type != "webp" {
-		return nil, fmt.Errorf("invalid storage type for WebpProcessor")
+		return nil, fmt.Errorf("invalid storage type for WebpConverter")
 	}
 	webpCfg := cfg.Config.(*config.WebpConfig)
 
-	return &WebpProcessor{webpCfg.Size.MaxWidth, webpCfg.Size.MaxHeight, webpCfg.Quality}, nil
+	return &WebpConverter{webpCfg.Size.MaxWidth, webpCfg.Size.MaxHeight, webpCfg.Quality}, nil
 }
 
-func (p *WebpProcessor) DeductOutputPath(inputPath string) string {
+func (p *WebpConverter) DeductOutputPath(inputPath string) string {
 	pathParts := strings.Split(inputPath, ".")
 	if len(pathParts) < 2 {
 		return inputPath + ".webp"
@@ -42,7 +42,7 @@ func (p *WebpProcessor) DeductOutputPath(inputPath string) string {
 	return strings.Join(pathParts, ".")
 }
 
-func (p *WebpProcessor) Process(contentType string, reader io.ReadCloser, writer io.WriteCloser) error {
+func (p *WebpConverter) Process(contentType string, reader io.ReadCloser, writer io.WriteCloser) error {
 	var src image.Image
 	var err error
 

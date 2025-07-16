@@ -11,7 +11,7 @@ import (
 
 type Config struct {
 	Input             InputConfig     `json:"Input" validate:"required"`
-	Processor         ProcessorConfig `json:"Processor" validate:"required"`
+	Converter         ConverterConfig `json:"Converter" validate:"required"`
 	Output            OutputConfig    `json:"Output" validate:"required"`
 	MaxConcurrentJobs int             `json:"MaxConcurrentJobs" validate:"required,min=1"`
 	ForceRewrite      bool            `json:"ForceRewrite" validate:"required"`
@@ -72,12 +72,12 @@ type LocalConfig struct {
 	Path string `json:"Path" validate:"required,min=1"`
 }
 
-type ProcessorConfig struct {
+type ConverterConfig struct {
 	Type   string `json:"Type" validate:"required,oneof=webp"`
 	Config any    `json:"Config" validate:"required"`
 }
 
-func (pc *ProcessorConfig) UnmarshalJSON(data []byte) error {
+func (pc *ConverterConfig) UnmarshalJSON(data []byte) error {
 	var tmp struct {
 		Type   string          `json:"Type"`
 		Config json.RawMessage `json:"Config"`

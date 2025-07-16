@@ -19,7 +19,7 @@
             "png"
         ]
     },
-    "Processor": {
+    "Converter": {
         "Type": "webp",
         "Config": {
             "Quality": 80,

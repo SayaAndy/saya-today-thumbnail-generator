@@ -11,7 +11,7 @@ import (
 	"github.com/SayaAndy/saya-today-thumbnail-generator/config"
 	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/client/input"
 	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/client/output"
-	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/processor"
+	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/converter"
 )
 
 var (
@@ -20,6 +20,7 @@ var (
 )
 
 func main() {
+	var err error
 	signal.Notify(sigTermChan, os.Interrupt, syscall.SIGTERM)
 
 	flag.Parse()
@@ -40,19 +41,22 @@ func main() {
 	default:
 	}
 
-	inputClient, err := input.NewB2InputClient(&cfg.Input)
+	var inputClient input.InputClient
+	inputClient, err = input.NewB2InputClient(&cfg.Input)
 	if err != nil {
 		slog.Error("fail to initialize input client", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	outputClient, err := output.NewB2OutputClient(&cfg.Output)
+	var outputClient output.OutputClient
+	outputClient, err = output.NewB2OutputClient(&cfg.Output)
 	if err != nil {
 		slog.Error("fail to initialize output client", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	converter, err := processor.NewWebpProcessor(&cfg.Processor)
+	var conv converter.Converter
+	conv, err = converter.NewWebpConverter(&cfg.Converter)
 	if err != nil {
 		slog.Error("fail to initialize converter", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -60,10 +64,10 @@ func main() {
 
 	generalLogger := slog.With(
 		slog.String("input_storage", cfg.Input.Storage.Type),
-		slog.String("processor_type", cfg.Processor.Type),
+		slog.String("converter_type", cfg.Converter.Type),
 		slog.String("output_storage", cfg.Output.Storage.Type),
 	)
-	generalLogger.Info("initialized clients and processor")
+	generalLogger.Info("initialized clients and converter")
 
 	select {
 	case <-sigTermChan:
@@ -92,7 +96,7 @@ func main() {
 
 	for i, file := range files {
 		go func(index int, inputName string) {
-			outputName := converter.DeductOutputPath(inputName)
+			outputName := conv.DeductOutputPath(inputName)
 			fileLogger := generalLogger.With(slog.String("input_path", inputName), slog.String("output_path", outputName), slog.Int("file_index", index))
 
 			threadSigTermChannel := make(chan os.Signal, 1)
@@ -139,7 +143,7 @@ func main() {
 				return
 			}
 
-			if err := converter.Process(inputMetadata.ContentType, reader, writer); err != nil {
+			if err := conv.Process(inputMetadata.ContentType, reader, writer); err != nil {
 				fileLogger.Warn("fail to convert file", slog.String("error", err.Error()))
 				return
 			}
