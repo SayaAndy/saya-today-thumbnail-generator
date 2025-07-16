@@ -3,6 +3,7 @@ package output
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"mime"
 	"os"
 	"strconv"
@@ -101,7 +102,8 @@ func (c *LocalUnixOutputClient) ReadMetadata(path string) (*MetadataStruct, erro
 	case "xattr":
 		sz, err := unix.Getxattr(c.path+path, "user.originalfile.mddate", nil)
 		if err != nil {
-			return nil, fmt.Errorf("fail to get size of user.originalfile.mddate attribute: %w", err)
+			slog.Warn("fail to get size of user.originalfile.mddate attribute, proceeding as if no such attribute is there", slog.String("error", err.Error()))
+			break
 		}
 		mddateOriginal = make([]byte, sz)
 		if _, err = unix.Getxattr(c.path+path, "user.originalfile.mddate", mddateOriginal); err != nil {
