@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/go-playground/validator/v10"
@@ -14,6 +15,7 @@ type Config struct {
 	Output            OutputConfig    `json:"Output" validate:"required"`
 	MaxConcurrentJobs int             `json:"MaxConcurrentJobs" validate:"required,min=1"`
 	ForceRewrite      bool            `json:"ForceRewrite" validate:"required"`
+	LogLevel          slog.Level      `json:"LogLevel" validate:"required"`
 }
 
 type InputConfig struct {

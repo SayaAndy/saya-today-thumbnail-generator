@@ -1,6 +1,7 @@
 {
     "ForceRewrite": false,
     "MaxConcurrentJobs": 4,
+    "LogLevel": "info",
     "Input": {
         "Storage": {
             "Type": "b2",
