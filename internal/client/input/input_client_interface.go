@@ -3,6 +3,8 @@ package input
 import (
 	"io"
 	"time"
+
+	"github.com/SayaAndy/saya-today-thumbnail-generator/config"
 )
 
 type InputClient interface {
@@ -19,4 +21,9 @@ type MetadataStruct struct {
 	FirstCreated time.Time
 	LastModified time.Time
 	Misc         map[string]string
+}
+
+var NewInputClientMap = map[string]func(cfg *config.InputConfig) (InputClient, error){
+	"b2":         NewB2InputClient,
+	"local-unix": NewLocalUnixInputClient,
 }

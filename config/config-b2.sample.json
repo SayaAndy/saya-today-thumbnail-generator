@@ -1,0 +1,44 @@
+{
+    "ForceRewrite": false,
+    "MaxConcurrentJobs": 4,
+    "LogLevel": "info",
+    "Input": {
+        "Storage": {
+            "Type": "b2",
+            "Config": {
+                "BucketName": "sayana-photos",
+                "Region": "eu-central-003",
+                "Prefix": "full/",
+                "KeyID": "${B2_KEY_ID}",
+                "ApplicationKey": "${B2_APPLICATION_KEY}"
+            }
+        },
+        "KnownExtensions": [
+            "jpg",
+            "jpeg",
+            "png"
+        ]
+    },
+    "Converter": {
+        "Type": "webp",
+        "Config": {
+            "Quality": 80,
+            "Size": {
+                "MaxWidth": 800,
+                "MaxHeight": 0
+            }
+        }
+    },
+    "Output": {
+        "Storage": {
+            "Type": "b2",
+            "Config": {
+                "BucketName": "sayana-photos",
+                "Region": "eu-central-003",
+                "Prefix": "thumbnails/",
+                "KeyID": "${B2_KEY_ID}",
+                "ApplicationKey": "${B2_APPLICATION_KEY}"
+            }
+        }
+    }
+}

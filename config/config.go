@@ -19,16 +19,16 @@ type Config struct {
 }
 
 type InputConfig struct {
-	Storage         StorageConfig `json:"Storage" validate:"required"`
-	KnownExtensions []string      `json:"KnownExtensions" validate:"required,min=0,dive,min=1"`
+	Storage         InputStorageConfig `json:"Storage" validate:"required"`
+	KnownExtensions []string           `json:"KnownExtensions" validate:"required,min=0,dive,min=1"`
 }
 
-type StorageConfig struct {
-	Type   string `json:"Type" validate:"required,oneof=b2 local"`
+type InputStorageConfig struct {
+	Type   string `json:"Type" validate:"required,oneof=b2 local-unix"`
 	Config any    `json:"Config" validate:"required"`
 }
 
-func (sc *StorageConfig) UnmarshalJSON(data []byte) error {
+func (sc *InputStorageConfig) UnmarshalJSON(data []byte) error {
 	var tmp struct {
 		Type   string          `json:"Type"`
 		Config json.RawMessage `json:"Config"`
@@ -47,12 +47,49 @@ func (sc *StorageConfig) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("unmarshal B2Config: %w", err)
 		}
 		sc.Config = &b2Config
-	case "local":
-		var localConfig LocalConfig
-		if err := json.Unmarshal(tmp.Config, &localConfig); err != nil {
-			return fmt.Errorf("unmarshal LocalConfig: %w", err)
+	case "local-unix":
+		var localUnixConfig InputLocalUnixConfig
+		if err := json.Unmarshal(tmp.Config, &localUnixConfig); err != nil {
+			return fmt.Errorf("unmarshal LocalUnixConfig: %w", err)
 		}
-		sc.Config = &localConfig
+		sc.Config = &localUnixConfig
+	default:
+		return fmt.Errorf("unsupported storage type: %s", tmp.Type)
+	}
+
+	return nil
+}
+
+type OutputStorageConfig struct {
+	Type   string `json:"Type" validate:"required,oneof=b2 local-unix"`
+	Config any    `json:"Config" validate:"required"`
+}
+
+func (sc *OutputStorageConfig) UnmarshalJSON(data []byte) error {
+	var tmp struct {
+		Type   string          `json:"Type"`
+		Config json.RawMessage `json:"Config"`
+	}
+
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return err
+	}
+
+	sc.Type = tmp.Type
+
+	switch tmp.Type {
+	case "b2":
+		var b2Config B2Config
+		if err := json.Unmarshal(tmp.Config, &b2Config); err != nil {
+			return fmt.Errorf("unmarshal B2Config: %w", err)
+		}
+		sc.Config = &b2Config
+	case "local-unix":
+		var localUnixConfig OutputLocalUnixConfig
+		if err := json.Unmarshal(tmp.Config, &localUnixConfig); err != nil {
+			return fmt.Errorf("unmarshal LocalUnixConfig: %w", err)
+		}
+		sc.Config = &localUnixConfig
 	default:
 		return fmt.Errorf("unsupported storage type: %s", tmp.Type)
 	}
@@ -68,8 +105,20 @@ type B2Config struct {
 	ApplicationKey string `json:"ApplicationKey"`
 }
 
-type LocalConfig struct {
-	Path string `json:"Path" validate:"required,min=1"`
+type InputLocalUnixConfig struct {
+	MaxDepth int    `json:"MaxDepth" validate:"required,min=0"`
+	Path     string `json:"Path" validate:"required,min=1"`
+}
+
+type OutputConfig struct {
+	Storage OutputStorageConfig `json:"Storage" validate:"required"`
+}
+
+type OutputLocalUnixConfig struct {
+	Path                     string `json:"Path" validate:"required,min=1"`
+	DirPermissionMode        string `json:"DirPermissionMode" validate:"required,min=3"`
+	FilePermissionMode       string `json:"FilePermissionMode" validate:"required,min=3"`
+	AttributesImplementation string `json:"AttributesImplementation" validate:"required,oneof=xattr none"`
 }
 
 type ConverterConfig struct {
@@ -111,10 +160,6 @@ type WebpConfig struct {
 type SizeConfig struct {
 	MaxWidth  int `json:"MaxWidth" validate:"required,min=0"`
 	MaxHeight int `json:"MaxHeight" validate:"required,min=0"`
-}
-
-type OutputConfig struct {
-	Storage StorageConfig `json:"Storage" validate:"required"`
 }
 
 func LoadConfig(path string, config *Config) error {

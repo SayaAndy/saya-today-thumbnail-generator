@@ -19,7 +19,7 @@ type B2OutputClient struct {
 	b2cl   *b2.Client
 }
 
-func NewB2OutputClient(cfg *config.OutputConfig) (*B2OutputClient, error) {
+func NewB2OutputClient(cfg *config.OutputConfig) (OutputClient, error) {
 	if cfg.Storage.Type != "b2" {
 		return nil, fmt.Errorf("invalid storage type for B2OutputClient")
 	}

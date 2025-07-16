@@ -4,6 +4,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/SayaAndy/saya-today-thumbnail-generator/config"
 	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/client/input"
 )
 
@@ -22,4 +23,9 @@ type MetadataStruct struct {
 	FirstCreated time.Time
 	LastModified time.Time
 	Misc         map[string]string
+}
+
+var NewOutputClientMap = map[string]func(cfg *config.OutputConfig) (OutputClient, error){
+	"b2":         NewB2OutputClient,
+	"local-unix": NewLocalUnixOutputClient,
 }

@@ -1,16 +1,13 @@
 {
     "ForceRewrite": false,
     "MaxConcurrentJobs": 4,
-    "LogLevel": "info",
+    "LogLevel": "debug",
     "Input": {
         "Storage": {
-            "Type": "b2",
+            "Type": "local-unix",
             "Config": {
-                "BucketName": "sayana-photos",
-                "Region": "eu-central-003",
-                "Prefix": "full/",
-                "KeyID": "${B2_KEY_ID}",
-                "ApplicationKey": "${B2_APPLICATION_KEY}"
+                "MaxDepth": 3,
+                "Path": "/tmp/thumbnailing/full/"
             }
         },
         "KnownExtensions": [
@@ -31,13 +28,12 @@
     },
     "Output": {
         "Storage": {
-            "Type": "b2",
+            "Type": "local-unix",
             "Config": {
-                "BucketName": "sayana-photos",
-                "Region": "eu-central-003",
-                "Prefix": "thumbnails/",
-                "KeyID": "${B2_KEY_ID}",
-                "ApplicationKey": "${B2_APPLICATION_KEY}"
+                "Path": "/tmp/thumbnailing/thumbnails/",
+                "DirPermissionMode": "0755",
+                "FilePermissionMode": "0644",
+                "AttributesImplementation": "xattr"
             }
         }
     }

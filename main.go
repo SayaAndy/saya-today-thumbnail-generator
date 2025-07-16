@@ -20,7 +20,6 @@ var (
 )
 
 func main() {
-	var err error
 	signal.Notify(sigTermChan, os.Interrupt, syscall.SIGTERM)
 
 	flag.Parse()
@@ -41,22 +40,19 @@ func main() {
 	default:
 	}
 
-	var inputClient input.InputClient
-	inputClient, err = input.NewB2InputClient(&cfg.Input)
+	inputClient, err := input.NewInputClientMap[cfg.Input.Storage.Type](&cfg.Input)
 	if err != nil {
 		slog.Error("fail to initialize input client", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	var outputClient output.OutputClient
-	outputClient, err = output.NewB2OutputClient(&cfg.Output)
+	outputClient, err := output.NewOutputClientMap[cfg.Output.Storage.Type](&cfg.Output)
 	if err != nil {
 		slog.Error("fail to initialize output client", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	var conv converter.Converter
-	conv, err = converter.NewWebpConverter(&cfg.Converter)
+	conv, err := converter.NewConverterMap[cfg.Converter.Type](&cfg.Converter)
 	if err != nil {
 		slog.Error("fail to initialize converter", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -118,19 +114,21 @@ func main() {
 				return
 			}
 
+			originalInputHash := ""
 			if !cfg.ForceRewrite && !outputClient.IsMissing(outputName) {
 				outputMetadata, err := outputClient.ReadMetadata(outputName)
 				if err != nil {
 					fileLogger.Warn("fail to read metadata of (supposedly existing) output file", slog.String("error", err.Error()))
 					return
 				}
-				if inputMetadata.Hash == outputMetadata.HashOriginal {
+				originalInputHash = outputMetadata.HashOriginal
+				if inputMetadata.Hash == originalInputHash {
 					fileLogger.Info("skip already processed file (based on equal hash)", slog.String("input_hash", inputMetadata.Hash))
 					return
 				}
 			}
 
-			fileLogger.Info("start to process file")
+			fileLogger.Info("start to process file", slog.String("input_hash", inputMetadata.Hash), slog.String("original_input_hash", originalInputHash))
 			reader, err := inputClient.GetReader(inputName)
 			if err != nil {
 				fileLogger.Warn("fail to get reader for input file", slog.String("error", err.Error()))

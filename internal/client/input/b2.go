@@ -21,7 +21,7 @@ type B2InputClient struct {
 	knownExtensions []string
 }
 
-func NewB2InputClient(cfg *config.InputConfig) (*B2InputClient, error) {
+func NewB2InputClient(cfg *config.InputConfig) (InputClient, error) {
 	if cfg.Storage.Type != "b2" {
 		return nil, fmt.Errorf("invalid storage type for B2InputClient")
 	}

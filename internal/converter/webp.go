@@ -24,7 +24,7 @@ type WebpConverter struct {
 	quality   int
 }
 
-func NewWebpConverter(cfg *config.ConverterConfig) (*WebpConverter, error) {
+func NewWebpConverter(cfg *config.ConverterConfig) (Converter, error) {
 	if cfg.Type != "webp" {
 		return nil, fmt.Errorf("invalid storage type for WebpConverter")
 	}
