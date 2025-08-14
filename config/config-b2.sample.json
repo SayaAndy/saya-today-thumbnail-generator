@@ -1,6 +1,7 @@
 {
     "ForceRewrite": false,
-    "MaxConcurrentJobs": 4,
+    "MaxProcessThreads": 4,
+    "MaxPreProcessThreads": 12,
     "LogLevel": "info",
     "Input": {
         "Storage": {

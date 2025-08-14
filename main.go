@@ -86,11 +86,13 @@ func main() {
 	default:
 	}
 
-	semaphore := make(chan struct{}, cfg.MaxConcurrentJobs)
+	processSemaphore := make(chan struct{}, cfg.MaxProcessThreads)
+	queueSemaphore := make(chan struct{}, cfg.MaxPreProcessThreads)
 	var wg sync.WaitGroup
 	wg.Add(len(files))
 
 	for i, file := range files {
+		queueSemaphore <- struct{}{}
 		go func(index int, inputName string) {
 			outputName := conv.DeductOutputPath(inputName)
 			fileLogger := generalLogger.With(slog.String("input_path", inputName), slog.String("output_path", outputName), slog.Int("file_index", index))
@@ -98,9 +100,8 @@ func main() {
 			threadSigTermChannel := make(chan os.Signal, 1)
 			signal.Notify(threadSigTermChannel, os.Interrupt, syscall.SIGTERM)
 
-			defer func() { <-semaphore }()
-			defer wg.Done()
-			semaphore <- struct{}{}
+			defer func() { <-queueSemaphore; wg.Done() }()
+
 			select {
 			case <-threadSigTermChannel:
 				fileLogger.Info("exiting due to termination signal")
@@ -127,6 +128,9 @@ func main() {
 					return
 				}
 			}
+
+			processSemaphore <- struct{}{}
+			defer func() { <-processSemaphore }()
 
 			fileLogger.Info("start to process file", slog.String("input_hash", inputMetadata.Hash), slog.String("original_input_hash", originalInputHash))
 			reader, err := inputClient.GetReader(inputName)

@@ -10,12 +10,13 @@ import (
 )
 
 type Config struct {
-	Input             InputConfig     `json:"Input" validate:"required"`
-	Converter         ConverterConfig `json:"Converter" validate:"required"`
-	Output            OutputConfig    `json:"Output" validate:"required"`
-	MaxConcurrentJobs int             `json:"MaxConcurrentJobs" validate:"required,min=1"`
-	ForceRewrite      bool            `json:"ForceRewrite" validate:"required"`
-	LogLevel          slog.Level      `json:"LogLevel" validate:"required"`
+	Input                InputConfig     `json:"Input" validate:"required"`
+	Converter            ConverterConfig `json:"Converter" validate:"required"`
+	Output               OutputConfig    `json:"Output" validate:"required"`
+	MaxProcessThreads    int             `json:"MaxProcessThreads" validate:"required,min=1"`
+	MaxPreProcessThreads int             `json:"MaxPreProcessThreads" validate:"min=1;gtefield=MaxProcessThreads"`
+	ForceRewrite         bool            `json:"ForceRewrite" validate:"required"`
+	LogLevel             slog.Level      `json:"LogLevel" validate:"required"`
 }
 
 type InputConfig struct {

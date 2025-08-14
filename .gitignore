@@ -28,8 +28,8 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
 
 config*.json
 !config*.sample.json
