@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/Backblaze/blazer/b2"
 	"github.com/SayaAndy/saya-today-thumbnail-generator/config"
@@ -70,8 +69,8 @@ func (c *B2OutputClient) ReadMetadata(path string) (*MetadataStruct, error) {
 		FirstCreated: attrs.UploadTimestamp,
 		LastModified: attrs.LastModified,
 		Misc:         attrs.Info,
+		Size:         attrs.Size,
 	}
-	metadata.Misc["Size"] = strconv.FormatInt(attrs.Size, 10)
 
 	switch attrs.Status {
 	case b2.Uploaded:

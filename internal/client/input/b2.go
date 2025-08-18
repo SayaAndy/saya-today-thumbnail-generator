@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/Backblaze/blazer/b2"
@@ -102,8 +101,8 @@ func (c *B2InputClient) ReadMetadata(path string) (*MetadataStruct, error) {
 		FirstCreated: attrs.UploadTimestamp,
 		LastModified: attrs.LastModified,
 		Misc:         attrs.Info,
+		Size:         attrs.Size,
 	}
-	metadata.Misc["Size"] = strconv.FormatInt(attrs.Size, 10)
 
 	switch attrs.Status {
 	case b2.Uploaded:

@@ -10,13 +10,12 @@ import (
 )
 
 type Config struct {
-	Input                InputConfig     `json:"Input" validate:"required"`
-	Converter            ConverterConfig `json:"Converter" validate:"required"`
-	Output               OutputConfig    `json:"Output" validate:"required"`
-	MaxProcessThreads    int             `json:"MaxProcessThreads" validate:"required,min=1"`
-	MaxPreProcessThreads int             `json:"MaxPreProcessThreads" validate:"min=1;gtefield=MaxProcessThreads"`
-	ForceRewrite         bool            `json:"ForceRewrite" validate:"required"`
-	LogLevel             slog.Level      `json:"LogLevel" validate:"required"`
+	Input                InputConfig       `json:"Input" validate:"required"`
+	Converters           []ConverterConfig `json:"Converters" validate:"required"`
+	MaxProcessThreads    int               `json:"MaxProcessThreads" validate:"required,min=1"`
+	MaxPreProcessThreads int               `json:"MaxPreProcessThreads" validate:"min=1;gtefield=MaxProcessThreads"`
+	ForceRewrite         bool              `json:"ForceRewrite" validate:"required"`
+	LogLevel             slog.Level        `json:"LogLevel" validate:"required"`
 }
 
 type InputConfig struct {
@@ -59,6 +58,50 @@ func (sc *InputStorageConfig) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+type ConverterConfig struct {
+	Type   string       `json:"Type" validate:"required,oneof=webp"`
+	Config any          `json:"Config" validate:"required"`
+	Output OutputConfig `json:"Output" validate:"required"`
+}
+
+func (pc *ConverterConfig) UnmarshalJSON(data []byte) error {
+	var tmp struct {
+		Type   string          `json:"Type"`
+		Config json.RawMessage `json:"Config"`
+		Output OutputConfig    `json:"Output"`
+	}
+
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return err
+	}
+
+	pc.Type = tmp.Type
+	pc.Output = tmp.Output
+
+	switch tmp.Type {
+	case "webp":
+		var webpConfig WebpConfig
+		if err := json.Unmarshal(tmp.Config, &webpConfig); err != nil {
+			return fmt.Errorf("unmarshal WebpConfig: %w", err)
+		}
+		pc.Config = &webpConfig
+	default:
+		return fmt.Errorf("unsupported storage type: %s", tmp.Type)
+	}
+
+	return nil
+}
+
+type WebpConfig struct {
+	Quality int        `json:"Quality" validate:"required,min=1,max=100"`
+	Size    SizeConfig `json:"Size" validate:"required"`
+}
+
+type SizeConfig struct {
+	MaxWidth  int `json:"MaxWidth" validate:"required,min=0"`
+	MaxHeight int `json:"MaxHeight" validate:"required,min=0"`
 }
 
 type OutputStorageConfig struct {
@@ -120,47 +163,6 @@ type OutputLocalUnixConfig struct {
 	DirPermissionMode        string `json:"DirPermissionMode" validate:"required,min=3"`
 	FilePermissionMode       string `json:"FilePermissionMode" validate:"required,min=3"`
 	AttributesImplementation string `json:"AttributesImplementation" validate:"required,oneof=xattr none"`
-}
-
-type ConverterConfig struct {
-	Type   string `json:"Type" validate:"required,oneof=webp"`
-	Config any    `json:"Config" validate:"required"`
-}
-
-func (pc *ConverterConfig) UnmarshalJSON(data []byte) error {
-	var tmp struct {
-		Type   string          `json:"Type"`
-		Config json.RawMessage `json:"Config"`
-	}
-
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
-	}
-
-	pc.Type = tmp.Type
-
-	switch tmp.Type {
-	case "webp":
-		var webpConfig WebpConfig
-		if err := json.Unmarshal(tmp.Config, &webpConfig); err != nil {
-			return fmt.Errorf("unmarshal WebpConfig: %w", err)
-		}
-		pc.Config = &webpConfig
-	default:
-		return fmt.Errorf("unsupported storage type: %s", tmp.Type)
-	}
-
-	return nil
-}
-
-type WebpConfig struct {
-	Quality int        `json:"Quality" validate:"required,min=1,max=100"`
-	Size    SizeConfig `json:"Size" validate:"required"`
-}
-
-type SizeConfig struct {
-	MaxWidth  int `json:"MaxWidth" validate:"required,min=0"`
-	MaxHeight int `json:"MaxHeight" validate:"required,min=0"`
 }
 
 func LoadConfig(path string, config *Config) error {

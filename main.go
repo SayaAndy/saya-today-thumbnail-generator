@@ -1,16 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
 	"github.com/SayaAndy/saya-today-thumbnail-generator/config"
 	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/client/input"
-	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/client/output"
 	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/converter"
 )
 
@@ -46,24 +47,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	outputClient, err := output.NewOutputClientMap[cfg.Output.Storage.Type](&cfg.Output)
-	if err != nil {
-		slog.Error("fail to initialize output client", slog.String("error", err.Error()))
-		os.Exit(1)
+	converters := make([]converter.Converter, 0, len(cfg.Converters))
+	var converterTypes []string
+	for _, converterCfg := range cfg.Converters {
+		conv, err := converter.NewConverterMap[converterCfg.Type](&converterCfg)
+		if err != nil {
+			slog.Error("fail to initialize converter", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		converters = append(converters, conv)
+		converterTypes = append(converterTypes, converterCfg.Type)
 	}
 
-	conv, err := converter.NewConverterMap[cfg.Converter.Type](&cfg.Converter)
-	if err != nil {
-		slog.Error("fail to initialize converter", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
-	generalLogger := slog.With(
-		slog.String("input_storage", cfg.Input.Storage.Type),
-		slog.String("converter_type", cfg.Converter.Type),
-		slog.String("output_storage", cfg.Output.Storage.Type),
-	)
-	generalLogger.Info("initialized clients and converter")
+	generalLogger := slog.With(slog.String("input_storage", cfg.Input.Storage.Type))
+	generalLogger.Info("initialized input client and converters", slog.String("converter_types", strings.Join(converterTypes, " ")))
 
 	select {
 	case <-sigTermChan:
@@ -77,7 +74,8 @@ func main() {
 		generalLogger.Error("fail to scan input files", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	generalLogger.Info("scanned files", slog.Int("file_count", len(files)))
+	fileCount := len(files)
+	generalLogger.Info("scanned files", slog.Int("file_count", fileCount))
 
 	select {
 	case <-sigTermChan:
@@ -89,13 +87,12 @@ func main() {
 	processSemaphore := make(chan struct{}, cfg.MaxProcessThreads)
 	queueSemaphore := make(chan struct{}, cfg.MaxPreProcessThreads)
 	var wg sync.WaitGroup
-	wg.Add(len(files))
+	wg.Add(fileCount)
 
 	for i, file := range files {
 		queueSemaphore <- struct{}{}
 		go func(index int, inputName string) {
-			outputName := conv.DeductOutputPath(inputName)
-			fileLogger := generalLogger.With(slog.String("input_path", inputName), slog.String("output_path", outputName), slog.Int("file_index", index))
+			fileLogger := generalLogger.With(slog.String("input_path", inputName), slog.Int("file_index", index))
 
 			threadSigTermChannel := make(chan os.Signal, 1)
 			signal.Notify(threadSigTermChannel, os.Interrupt, syscall.SIGTERM)
@@ -115,42 +112,60 @@ func main() {
 				return
 			}
 
-			originalInputHash := ""
-			if !cfg.ForceRewrite && !outputClient.IsMissing(outputName) {
-				outputMetadata, err := outputClient.ReadMetadata(outputName)
-				if err != nil {
-					fileLogger.Warn("fail to read metadata of (supposedly existing) output file", slog.String("error", err.Error()))
-					return
+			convertersToLaunch := []int{}
+			for j, conv := range converters {
+				outputName := conv.DeductOutputPath(inputName)
+				originalInputHash := ""
+				convLogger := fileLogger.With(slog.String("output_path", outputName), slog.Int("conv_index", j))
+
+				if !cfg.ForceRewrite && !conv.IsMissing(outputName) {
+					outputMetadata, err := conv.ReadMetadata(outputName)
+					if err != nil {
+						convLogger.Warn("fail to read metadata of (supposedly existing) output file", slog.String("error", err.Error()))
+						continue
+					}
+					originalInputHash = outputMetadata.HashOriginal
+					if inputMetadata.Hash == originalInputHash {
+						convLogger.Info("skip already processed file (based on equal hash)", slog.String("input_hash", inputMetadata.Hash))
+						continue
+					}
 				}
-				originalInputHash = outputMetadata.HashOriginal
-				if inputMetadata.Hash == originalInputHash {
-					fileLogger.Info("skip already processed file (based on equal hash)", slog.String("input_hash", inputMetadata.Hash))
-					return
-				}
+				convertersToLaunch = append(convertersToLaunch, j)
+			}
+
+			if len(convertersToLaunch) == 0 {
+				return
 			}
 
 			processSemaphore <- struct{}{}
 			defer func() { <-processSemaphore }()
 
-			fileLogger.Info("start to process file", slog.String("input_hash", inputMetadata.Hash), slog.String("original_input_hash", originalInputHash))
+			fileLogger.Info("start to process file", slog.String("input_hash", inputMetadata.Hash))
 			reader, err := inputClient.GetReader(inputName)
 			if err != nil {
 				fileLogger.Warn("fail to get reader for input file", slog.String("error", err.Error()))
 				return
 			}
 
-			writer, err := outputClient.GetWriter(outputName, inputMetadata)
-			if err != nil {
-				fileLogger.Warn("fail to get writer for output file", slog.String("error", err.Error()))
+			fileContent := make([]byte, inputMetadata.Size)
+			if _, err = reader.Read(fileContent); err != nil {
+				fileLogger.Warn("fail to read content of input file", slog.String("error", err.Error()))
 				return
 			}
+			reader.Close()
 
-			if err := conv.Process(inputMetadata.ContentType, reader, writer); err != nil {
-				fileLogger.Warn("fail to convert file", slog.String("error", err.Error()))
-				return
+			for _, convIndex := range convertersToLaunch {
+				conv := converters[convIndex]
+				outputName := conv.DeductOutputPath(inputName)
+				convLogger := fileLogger.With(slog.String("output_path", outputName), slog.Int("conv_index", convIndex))
+
+				if err := conv.Process(inputMetadata, bytes.NewReader(fileContent), outputName); err != nil {
+					convLogger.Warn("fail to convert file", slog.String("error", err.Error()))
+					return
+				}
+
+				convLogger.Info("successfully processed file", slog.String("input_hash", inputMetadata.Hash))
 			}
-
-			fileLogger.Info("successfully processed file", slog.String("input_hash", inputMetadata.Hash))
 		}(i, file)
 	}
 

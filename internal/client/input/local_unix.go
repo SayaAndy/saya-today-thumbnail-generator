@@ -87,10 +87,6 @@ func (c *LocalUnixInputClient) ReadMetadata(path string) (*MetadataStruct, error
 	stat_t := fileInfo.Sys().(*syscall.Stat_t)
 	creationTime := time.Unix(stat_t.Ctim.Sec, stat_t.Ctim.Nsec)
 
-	misc := map[string]string{
-		"Size": strconv.FormatInt(fileInfo.Size(), 10),
-	}
-
 	return &MetadataStruct{
 		Name:         fileInfo.Name(),
 		StorageType:  "local-unix",
@@ -98,7 +94,8 @@ func (c *LocalUnixInputClient) ReadMetadata(path string) (*MetadataStruct, error
 		ContentType:  mime.TypeByExtension("." + nodeExt),
 		FirstCreated: creationTime,
 		LastModified: fileInfo.ModTime(),
-		Misc:         misc,
+		Size:         fileInfo.Size(),
+		Misc:         map[string]string{},
 	}, nil
 }
 

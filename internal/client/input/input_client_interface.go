@@ -20,6 +20,7 @@ type MetadataStruct struct {
 	ContentType  string
 	FirstCreated time.Time
 	LastModified time.Time
+	Size         int64
 	Misc         map[string]string
 }
 

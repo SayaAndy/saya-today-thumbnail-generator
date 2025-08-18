@@ -10,7 +10,7 @@ import (
 
 type OutputClient interface {
 	GetWriter(path string, inputMetadata *input.MetadataStruct) (io.WriteCloser, error)
-	ReadMetadata(string) (*MetadataStruct, error)
+	ReadMetadata(path string) (*MetadataStruct, error)
 	IsMissing(path string) bool
 }
 
@@ -22,6 +22,7 @@ type MetadataStruct struct {
 	ContentType  string
 	FirstCreated time.Time
 	LastModified time.Time
+	Size         int64
 	Misc         map[string]string
 }
 

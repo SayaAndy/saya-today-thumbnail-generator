@@ -93,10 +93,6 @@ func (c *LocalUnixOutputClient) ReadMetadata(path string) (*MetadataStruct, erro
 	stat_t := fileInfo.Sys().(*syscall.Stat_t)
 	creationTime := time.Unix(stat_t.Ctim.Sec, stat_t.Ctim.Nsec)
 
-	misc := map[string]string{
-		"Size": strconv.FormatInt(fileInfo.Size(), 10),
-	}
-
 	mddateOriginal := make([]byte, 0)
 	switch c.attrMode {
 	case "xattr":
@@ -122,7 +118,8 @@ func (c *LocalUnixOutputClient) ReadMetadata(path string) (*MetadataStruct, erro
 		ContentType:  mime.TypeByExtension("." + nodeExt),
 		FirstCreated: creationTime,
 		LastModified: fileInfo.ModTime(),
-		Misc:         misc,
+		Size:         fileInfo.Size(),
+		Misc:         map[string]string{},
 	}, nil
 }
 

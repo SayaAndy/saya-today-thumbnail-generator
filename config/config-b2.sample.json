@@ -20,26 +20,116 @@
             "png"
         ]
     },
-    "Converter": {
-        "Type": "webp",
-        "Config": {
-            "Quality": 80,
-            "Size": {
-                "MaxWidth": 800,
-                "MaxHeight": 0
-            }
-        }
-    },
-    "Output": {
-        "Storage": {
-            "Type": "b2",
+    "Converters": [
+        {
+            "Type": "webp",
             "Config": {
-                "BucketName": "sayana-photos",
-                "Region": "eu-central-003",
-                "Prefix": "thumbnails/",
-                "KeyID": "${B2_KEY_ID}",
-                "ApplicationKey": "${B2_APPLICATION_KEY}"
+                "Quality": 80,
+                "Size": {
+                    "MaxWidth": 320,
+                    "MaxHeight": 0
+                }
+            },
+            "Output": {
+                "Storage": {
+                    "Type": "b2",
+                    "Config": {
+                        "BucketName": "sayana-photos",
+                        "Region": "eu-central-003",
+                        "Prefix": "webp-320p/",
+                        "KeyID": "${B2_KEY_ID}",
+                        "ApplicationKey": "${B2_APPLICATION_KEY}"
+                    }
+                }
+            }
+        },
+        {
+            "Type": "webp",
+            "Config": {
+                "Quality": 80,
+                "Size": {
+                    "MaxWidth": 560,
+                    "MaxHeight": 0
+                }
+            },
+            "Output": {
+                "Storage": {
+                    "Type": "b2",
+                    "Config": {
+                        "BucketName": "sayana-photos",
+                        "Region": "eu-central-003",
+                        "Prefix": "webp-560p/",
+                        "KeyID": "${B2_KEY_ID}",
+                        "ApplicationKey": "${B2_APPLICATION_KEY}"
+                    }
+                }
+            }
+        },
+        {
+            "Type": "webp",
+            "Config": {
+                "Quality": 80,
+                "Size": {
+                    "MaxWidth": 800,
+                    "MaxHeight": 0
+                }
+            },
+            "Output": {
+                "Storage": {
+                    "Type": "b2",
+                    "Config": {
+                        "BucketName": "sayana-photos",
+                        "Region": "eu-central-003",
+                        "Prefix": "webp-800p/",
+                        "KeyID": "${B2_KEY_ID}",
+                        "ApplicationKey": "${B2_APPLICATION_KEY}"
+                    }
+                }
+            }
+        },
+        {
+            "Type": "webp",
+            "Config": {
+                "Quality": 80,
+                "Size": {
+                    "MaxWidth": 1200,
+                    "MaxHeight": 0
+                }
+            },
+            "Output": {
+                "Storage": {
+                    "Type": "b2",
+                    "Config": {
+                        "BucketName": "sayana-photos",
+                        "Region": "eu-central-003",
+                        "Prefix": "webp-1200p/",
+                        "KeyID": "${B2_KEY_ID}",
+                        "ApplicationKey": "${B2_APPLICATION_KEY}"
+                    }
+                }
+            }
+        },
+        {
+            "Type": "webp",
+            "Config": {
+                "Quality": 80,
+                "Size": {
+                    "MaxWidth": 1600,
+                    "MaxHeight": 0
+                }
+            },
+            "Output": {
+                "Storage": {
+                    "Type": "b2",
+                    "Config": {
+                        "BucketName": "sayana-photos",
+                        "Region": "eu-central-003",
+                        "Prefix": "webp-1600p/",
+                        "KeyID": "${B2_KEY_ID}",
+                        "ApplicationKey": "${B2_APPLICATION_KEY}"
+                    }
+                }
             }
         }
-    }
+    ]
 }

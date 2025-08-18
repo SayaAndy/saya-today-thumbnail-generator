@@ -25,16 +25,16 @@
                 "MaxWidth": 800,
                 "MaxHeight": 0
             }
-        }
-    },
-    "Output": {
-        "Storage": {
-            "Type": "local-unix",
-            "Config": {
-                "Path": "/tmp/thumbnailing/thumbnails/",
-                "DirPermissionMode": "0755",
-                "FilePermissionMode": "0644",
-                "AttributesImplementation": "xattr"
+        },
+        "Output": {
+            "Storage": {
+                "Type": "local-unix",
+                "Config": {
+                    "Path": "/tmp/thumbnailing/thumbnails/",
+                    "DirPermissionMode": "0755",
+                    "FilePermissionMode": "0644",
+                    "AttributesImplementation": "xattr"
+                }
             }
         }
     }

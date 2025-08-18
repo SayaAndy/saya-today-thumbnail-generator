@@ -12,6 +12,8 @@ import (
 	"golang.org/x/image/draw"
 
 	"github.com/SayaAndy/saya-today-thumbnail-generator/config"
+	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/client/input"
+	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/client/output"
 	"github.com/kolesa-team/go-webp/encoder"
 	"github.com/kolesa-team/go-webp/webp"
 )
@@ -19,9 +21,10 @@ import (
 var _ Converter = (*WebpConverter)(nil)
 
 type WebpConverter struct {
-	maxWidth  int
-	maxHeight int
-	quality   int
+	maxWidth     int
+	maxHeight    int
+	quality      int
+	outputClient output.OutputClient
 }
 
 func NewWebpConverter(cfg *config.ConverterConfig) (Converter, error) {
@@ -30,26 +33,24 @@ func NewWebpConverter(cfg *config.ConverterConfig) (Converter, error) {
 	}
 	webpCfg := cfg.Config.(*config.WebpConfig)
 
-	return &WebpConverter{webpCfg.Size.MaxWidth, webpCfg.Size.MaxHeight, webpCfg.Quality}, nil
-}
-
-func (p *WebpConverter) DeductOutputPath(inputPath string) string {
-	pathParts := strings.Split(inputPath, ".")
-	if len(pathParts) < 2 {
-		return inputPath + ".webp"
+	outputClient, err := output.NewOutputClientMap[cfg.Output.Storage.Type](&cfg.Output)
+	if err != nil {
+		return nil, fmt.Errorf("fail to initialize output client: %w", err)
 	}
-	pathParts[len(pathParts)-1] = "webp"
-	return strings.Join(pathParts, ".")
+
+	return &WebpConverter{webpCfg.Size.MaxWidth, webpCfg.Size.MaxHeight, webpCfg.Quality, outputClient}, nil
 }
 
-func (p *WebpConverter) Process(contentType string, reader io.ReadCloser, writer io.WriteCloser) error {
+func (p *WebpConverter) Process(inputMetadata *input.MetadataStruct, reader io.Reader, outputName string) error {
 	var src image.Image
-	var err error
 
-	defer reader.Close()
+	writer, err := p.outputClient.GetWriter(outputName, inputMetadata)
+	if err != nil {
+		return fmt.Errorf("fail to initialize writer for output: %w", err)
+	}
 	defer writer.Close()
 
-	switch contentType {
+	switch inputMetadata.ContentType {
 	case "image/jpeg":
 		src, err = jpeg.Decode(reader)
 		if err != nil {
@@ -61,7 +62,7 @@ func (p *WebpConverter) Process(contentType string, reader io.ReadCloser, writer
 			return fmt.Errorf("decode png: %w", err)
 		}
 	default:
-		return fmt.Errorf("unsupported content type: %s", contentType)
+		return fmt.Errorf("unsupported content type: %s", inputMetadata.ContentType)
 	}
 
 	opts, err := encoder.NewLossyEncoderOptions(encoder.PresetDefault, float32(p.quality))
@@ -92,4 +93,21 @@ func (p *WebpConverter) Process(contentType string, reader io.ReadCloser, writer
 	draw.CatmullRom.Scale(dst, dst.Rect, src, src.Bounds(), draw.Over, nil)
 
 	return webp.Encode(writer, dst, opts)
+}
+
+func (p *WebpConverter) DeductOutputPath(inputPath string) string {
+	pathParts := strings.Split(inputPath, ".")
+	if len(pathParts) < 2 {
+		return inputPath + ".webp"
+	}
+	pathParts[len(pathParts)-1] = "webp"
+	return strings.Join(pathParts, ".")
+}
+
+func (p *WebpConverter) ReadMetadata(path string) (*output.MetadataStruct, error) {
+	return p.outputClient.ReadMetadata(path)
+}
+
+func (p *WebpConverter) IsMissing(path string) bool {
+	return p.outputClient.IsMissing(path)
 }
