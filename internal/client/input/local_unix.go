@@ -85,7 +85,7 @@ func (c *LocalUnixInputClient) ReadMetadata(path string) (*MetadataStruct, error
 	}
 
 	stat_t := fileInfo.Sys().(*syscall.Stat_t)
-	creationTime := time.Unix(stat_t.Ctim.Sec, stat_t.Ctim.Nsec)
+	creationTime := time.Unix(stat_t.Ctimespec.Sec, stat_t.Ctimespec.Nsec)
 
 	return &MetadataStruct{
 		Name:         fileInfo.Name(),

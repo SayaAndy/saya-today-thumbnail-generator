@@ -91,7 +91,7 @@ func (c *LocalUnixOutputClient) ReadMetadata(path string) (*MetadataStruct, erro
 	}
 
 	stat_t := fileInfo.Sys().(*syscall.Stat_t)
-	creationTime := time.Unix(stat_t.Ctim.Sec, stat_t.Ctim.Nsec)
+	creationTime := time.Unix(stat_t.Ctimespec.Sec, stat_t.Ctimespec.Nsec)
 
 	mddateOriginal := make([]byte, 0)
 	switch c.attrMode {

@@ -1,6 +1,6 @@
 module github.com/SayaAndy/saya-today-thumbnail-generator
 
-go 1.24.4
+go 1.25
 
 require (
 	github.com/Backblaze/blazer v0.7.2
