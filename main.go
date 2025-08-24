@@ -2,10 +2,15 @@ package main
 
 import (
 	"bytes"
+	"encoding/csv"
+	"encoding/json"
 	"flag"
+	"hash/crc32"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -18,6 +23,7 @@ import (
 var (
 	configPath  = flag.String("c", "config.json", "Path to the configuration file")
 	sigTermChan = make(chan os.Signal, 1)
+	cacheMap    = make(map[string]map[uint32]struct{})
 )
 
 func main() {
@@ -48,8 +54,10 @@ func main() {
 	}
 
 	converters := make([]converter.Converter, 0, len(cfg.Converters))
-	var converterTypes []string
+	converterTypes := make([]string, 0, len(cfg.Converters))
+	converterHashes := make([]uint32, 0, len(cfg.Converters))
 	for _, converterCfg := range cfg.Converters {
+		converterBytes, _ := json.Marshal(converterCfg)
 		conv, err := converter.NewConverterMap[converterCfg.Type](&converterCfg)
 		if err != nil {
 			slog.Error("fail to initialize converter", slog.String("error", err.Error()))
@@ -57,6 +65,7 @@ func main() {
 		}
 		converters = append(converters, conv)
 		converterTypes = append(converterTypes, converterCfg.Type)
+		converterHashes = append(converterHashes, crc32.ChecksumIEEE(converterBytes))
 	}
 
 	generalLogger := slog.With(slog.String("input_storage", cfg.Input.Storage.Type))
@@ -84,6 +93,40 @@ func main() {
 	default:
 	}
 
+	if cfg.Input.CacheProcessed {
+		cacheFile, err := os.OpenFile(cfg.Input.CacheProcessedCsvPath, os.O_CREATE|os.O_RDONLY, 0644)
+		if err != nil {
+			generalLogger.Error("fail to initialize cache file", slog.String("cache_path", cfg.Input.CacheProcessedCsvPath), slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		defer cacheFile.Close()
+
+		csvReader := csv.NewReader(cacheFile)
+		for {
+			rec, err := csvReader.Read()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				generalLogger.Error("fail to initialize cache while reading file", slog.String("cache_path", cfg.Input.CacheProcessedCsvPath), slog.String("error", err.Error()))
+				os.Exit(1)
+			}
+			if len(rec) != 2 {
+				generalLogger.Error("fail to initialize cache while reading file", slog.Int("record_length", len(rec)), slog.String("error", "incorrect format: expected '{image-name},{semicolon-separated-processor-hashes}'"))
+				os.Exit(1)
+			}
+			hashes := strings.Split(rec[1], ";")
+			cacheMap[rec[0]] = make(map[uint32]struct{})
+			for _, hash := range hashes {
+				hashUint, err := strconv.ParseUint(hash, 10, 32)
+				if err != nil {
+					generalLogger.Error("fail to initialize cache while reading file", slog.Int("record_length", len(rec)), slog.String("error", err.Error()))
+				}
+				cacheMap[rec[0]][uint32(hashUint)] = struct{}{}
+			}
+		}
+	}
+
 	processSemaphore := make(chan struct{}, cfg.MaxProcessThreads)
 	queueSemaphore := make(chan struct{}, cfg.MaxPreProcessThreads)
 	var wg sync.WaitGroup
@@ -106,17 +149,35 @@ func main() {
 			default:
 			}
 
-			inputMetadata, err := inputClient.ReadMetadata(inputName)
-			if err != nil {
-				fileLogger.Warn("fail to read metadata of (supposedly existing) input file", slog.String("error", err.Error()))
-				return
+			var inputMetadata *input.MetadataStruct
+
+			id := inputClient.ID(file)
+			if _, ok := cacheMap[id]; !ok {
+				cacheMap[id] = make(map[uint32]struct{})
 			}
 
 			convertersToLaunch := []int{}
 			for j, conv := range converters {
+				if cfg.Input.CacheProcessed {
+					if _, ok := cacheMap[id][converterHashes[j]]; ok {
+						fileLogger.Info("skip already processed file (based on cache file containing it and processor)",
+							slog.String("file_id", id),
+							slog.Uint64("conv_hash", uint64(converterHashes[j])),
+							slog.Int("conv_index", j))
+						continue
+					}
+				}
 				outputName := conv.DeductOutputPath(inputName)
 				originalInputHash := ""
 				convLogger := fileLogger.With(slog.String("output_path", outputName), slog.Int("conv_index", j))
+
+				if inputMetadata == nil {
+					inputMetadata, err = inputClient.ReadMetadata(inputName)
+					if err != nil {
+						fileLogger.Warn("fail to read metadata of (supposedly existing) input file", slog.String("error", err.Error()))
+						return
+					}
+				}
 
 				if !cfg.ForceRewrite && !conv.IsMissing(outputName) {
 					outputMetadata, err := conv.ReadMetadata(outputName)
@@ -127,6 +188,7 @@ func main() {
 					originalInputHash = outputMetadata.HashOriginal
 					if inputMetadata.Hash == originalInputHash {
 						convLogger.Info("skip already processed file (based on equal hash)", slog.String("input_hash", inputMetadata.Hash))
+						cacheMap[id][converterHashes[j]] = struct{}{}
 						continue
 					}
 				}
@@ -165,6 +227,7 @@ func main() {
 				}
 
 				convLogger.Info("successfully processed file", slog.String("input_hash", inputMetadata.Hash))
+				cacheMap[id][converterHashes[convIndex]] = struct{}{}
 			}
 		}(i, file)
 	}
@@ -176,7 +239,28 @@ func main() {
 		generalLogger.Info("exiting due to termination signal")
 		os.Exit(130)
 	default:
-		generalLogger.Info("all files processed successfully, exiting")
-		os.Exit(0)
 	}
+
+	generalLogger.Info("all files processed successfully")
+
+	if cfg.Input.CacheProcessed {
+		generalLogger.Info("writing cache file")
+		cacheFile, err := os.OpenFile(cfg.Input.CacheProcessedCsvPath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			generalLogger.Error("error writing cache into file")
+		} else {
+			for id, hashes := range cacheMap {
+				var hashStrings = make([]string, 0, len(hashes))
+				for hash := range hashes {
+					hashStrings = append(hashStrings, strconv.FormatUint(uint64(hash), 10))
+				}
+				cacheFile.Write([]byte(id))
+				cacheFile.Write([]byte{','})
+				cacheFile.WriteString(strings.Join(hashStrings, ";"))
+				cacheFile.Write([]byte{'\n'})
+			}
+		}
+	}
+
+	os.Exit(0)
 }

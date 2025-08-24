@@ -99,6 +99,10 @@ func (c *LocalUnixInputClient) ReadMetadata(path string) (*MetadataStruct, error
 	}, nil
 }
 
+func (c *LocalUnixInputClient) ID(path string) string {
+	return fmt.Sprintf("local-unix://%s%s", c.path, path)
+}
+
 func (c *LocalUnixInputClient) GetReader(path string) (io.ReadCloser, error) {
 	return os.Open(c.path + path)
 }

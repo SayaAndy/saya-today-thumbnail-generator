@@ -19,8 +19,10 @@ type Config struct {
 }
 
 type InputConfig struct {
-	Storage         InputStorageConfig `json:"Storage" validate:"required"`
-	KnownExtensions []string           `json:"KnownExtensions" validate:"required,min=0,dive,min=1"`
+	Storage               InputStorageConfig `json:"Storage" validate:"required"`
+	KnownExtensions       []string           `json:"KnownExtensions" validate:"required,min=0,dive,min=1"`
+	CacheProcessed        bool               `json:"CacheProcessed"`
+	CacheProcessedCsvPath string             `json:"CacheProcessedCsvPath" validate:"filepath"`
 }
 
 type InputStorageConfig struct {
@@ -159,7 +161,7 @@ type OutputConfig struct {
 }
 
 type OutputLocalUnixConfig struct {
-	Path                     string `json:"Path" validate:"required,min=1"`
+	Path                     string `json:"Path" validate:"required,min=1,dirpath"`
 	DirPermissionMode        string `json:"DirPermissionMode" validate:"required,min=3"`
 	FilePermissionMode       string `json:"FilePermissionMode" validate:"required,min=3"`
 	AttributesImplementation string `json:"AttributesImplementation" validate:"required,oneof=xattr none"`

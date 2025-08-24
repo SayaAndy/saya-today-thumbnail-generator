@@ -16,6 +16,7 @@ var _ InputClient = (*B2InputClient)(nil)
 type B2InputClient struct {
 	prefix          string
 	bucket          *b2.Bucket
+	bucketName      string
 	b2cl            *b2.Client
 	knownExtensions []string
 }
@@ -36,7 +37,7 @@ func NewB2InputClient(cfg *config.InputConfig) (InputClient, error) {
 		return nil, err
 	}
 
-	return &B2InputClient{b2cl: b2cl, bucket: bucket, prefix: b2cfg.Prefix, knownExtensions: cfg.KnownExtensions}, nil
+	return &B2InputClient{b2cl: b2cl, bucket: bucket, bucketName: b2cfg.BucketName, prefix: b2cfg.Prefix, knownExtensions: cfg.KnownExtensions}, nil
 }
 
 func (c *B2InputClient) Scan() ([]string, error) {
@@ -118,6 +119,10 @@ func (c *B2InputClient) ReadMetadata(path string) (*MetadataStruct, error) {
 	}
 
 	return &metadata, nil
+}
+
+func (c *B2InputClient) ID(path string) string {
+	return fmt.Sprintf("b2://%s/%s%s", c.bucketName, c.prefix, path)
 }
 
 func (c *B2InputClient) GetReader(path string) (io.ReadCloser, error) {

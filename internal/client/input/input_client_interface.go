@@ -11,6 +11,7 @@ type InputClient interface {
 	Scan() ([]string, error)
 	ReadMetadata(string) (*MetadataStruct, error)
 	GetReader(string) (io.ReadCloser, error)
+	ID(path string) string
 }
 
 type MetadataStruct struct {

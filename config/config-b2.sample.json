@@ -18,7 +18,9 @@
             "jpg",
             "jpeg",
             "png"
-        ]
+        ],
+        "CacheProcessed": true,
+        "CacheProcessedCsvPath": "cache.csv"
     },
     "Converters": [
         {
