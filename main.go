@@ -21,9 +21,10 @@ import (
 )
 
 var (
-	configPath  = flag.String("c", "config.json", "Path to the configuration file")
-	sigTermChan = make(chan os.Signal, 1)
-	cacheMap    = make(map[string]map[uint32]struct{})
+	configPath    = flag.String("c", "config.json", "Path to the configuration file")
+	sigTermChan   = make(chan os.Signal, 1)
+	cacheMapMutex = &sync.RWMutex{}
+	cacheMap      = make(map[string]map[uint32]struct{})
 )
 
 func main() {
@@ -153,19 +154,24 @@ func main() {
 
 			id := inputClient.ID(file)
 			if _, ok := cacheMap[id]; !ok {
+				cacheMapMutex.Lock()
 				cacheMap[id] = make(map[uint32]struct{})
+				cacheMapMutex.Unlock()
 			}
 
 			convertersToLaunch := []int{}
 			for j, conv := range converters {
 				if cfg.Input.CacheProcessed {
+					cacheMapMutex.RLock()
 					if _, ok := cacheMap[id][converterHashes[j]]; ok {
+						cacheMapMutex.RUnlock()
 						fileLogger.Info("skip already processed file (based on cache file containing it and processor)",
 							slog.String("file_id", id),
 							slog.Uint64("conv_hash", uint64(converterHashes[j])),
 							slog.Int("conv_index", j))
 						continue
 					}
+					cacheMapMutex.RUnlock()
 				}
 				outputName := conv.DeductOutputPath(inputName)
 				originalInputHash := ""
@@ -188,7 +194,9 @@ func main() {
 					originalInputHash = outputMetadata.HashOriginal
 					if inputMetadata.Hash == originalInputHash {
 						convLogger.Info("skip already processed file (based on equal hash)", slog.String("input_hash", inputMetadata.Hash))
+						cacheMapMutex.Lock()
 						cacheMap[id][converterHashes[j]] = struct{}{}
+						cacheMapMutex.Unlock()
 						continue
 					}
 				}
@@ -227,7 +235,9 @@ func main() {
 				}
 
 				convLogger.Info("successfully processed file", slog.String("input_hash", inputMetadata.Hash))
+				cacheMapMutex.Lock()
 				cacheMap[id][converterHashes[convIndex]] = struct{}{}
+				cacheMapMutex.Unlock()
 			}
 		}(i, file)
 	}
