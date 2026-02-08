@@ -1,5 +1,4 @@
 {
-    "ForceRewrite": false,
     "MaxProcessThreads": 4,
     "MaxPreProcessThreads": 12,
     "LogLevel": "debug",
@@ -27,6 +26,7 @@
             }
         },
         "Output": {
+            "RewriteOn": "UnequalHashInCache",
             "Storage": {
                 "Type": "local-unix",
                 "Config": {

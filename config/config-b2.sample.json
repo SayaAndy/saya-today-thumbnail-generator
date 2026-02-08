@@ -1,5 +1,4 @@
 {
-    "ForceRewrite": false,
     "MaxProcessThreads": 4,
     "MaxPreProcessThreads": 12,
     "LogLevel": "info",
@@ -33,6 +32,7 @@
                 }
             },
             "Output": {
+                "RewriteOn": "UnequalHashInCache",
                 "Storage": {
                     "Type": "b2",
                     "Config": {
@@ -55,6 +55,7 @@
                 }
             },
             "Output": {
+                "RewriteOn": "UnequalHashInCache",
                 "Storage": {
                     "Type": "b2",
                     "Config": {
@@ -77,6 +78,7 @@
                 }
             },
             "Output": {
+                "RewriteOn": "UnequalHashInCache",
                 "Storage": {
                     "Type": "b2",
                     "Config": {
@@ -99,6 +101,7 @@
                 }
             },
             "Output": {
+                "RewriteOn": "UnequalHashInCache",
                 "Storage": {
                     "Type": "b2",
                     "Config": {
@@ -121,6 +124,7 @@
                 }
             },
             "Output": {
+                "RewriteOn": "UnequalHashInCache",
                 "Storage": {
                     "Type": "b2",
                     "Config": {

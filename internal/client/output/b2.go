@@ -2,8 +2,10 @@ package output
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/Backblaze/blazer/b2"
 	"github.com/SayaAndy/saya-today-thumbnail-generator/config"
@@ -37,7 +39,7 @@ func NewB2OutputClient(cfg *config.OutputConfig) (OutputClient, error) {
 	return &B2OutputClient{b2cl: b2cl, bucket: bucket, prefix: b2cfg.Prefix}, nil
 }
 
-func (c *B2OutputClient) GetWriter(path string, inputMetadata *input.MetadataStruct) (io.WriteCloser, error) {
+func (c *B2OutputClient) GetWriter(path string, inputMetadata *input.MetadataStruct, outputContentType string) (io.WriteCloser, error) {
 	obj := c.bucket.Object(c.prefix + path)
 	if obj == nil {
 		return nil, fmt.Errorf("failed to reference object in B2 bucket")
@@ -45,6 +47,7 @@ func (c *B2OutputClient) GetWriter(path string, inputMetadata *input.MetadataStr
 
 	attrs := &b2.Attrs{Info: make(map[string]string)}
 	attrs.Info["sha1-original"] = inputMetadata.Hash
+	attrs.ContentType = outputContentType
 
 	return obj.NewWriter(context.Background(), b2.WithAttrsOption(attrs)), nil
 }
@@ -96,6 +99,13 @@ func (c *B2OutputClient) IsMissing(path string) bool {
 
 	attrs, err := obj.Attrs(context.Background())
 	if err != nil {
+		return true
+	}
+
+	attrsJson, _ := json.Marshal(attrs)
+	slog.Debug("got object attrs", slog.String("path", path), slog.String("attrs", string(attrsJson)))
+
+	if attrs.Size == 0 {
 		return true
 	}
 

@@ -7,44 +7,49 @@ import (
 	"image/png"
 	"io"
 	"log/slog"
+	"path/filepath"
 	"strings"
-
-	"golang.org/x/image/draw"
 
 	"github.com/SayaAndy/saya-today-thumbnail-generator/config"
 	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/client/input"
 	"github.com/SayaAndy/saya-today-thumbnail-generator/internal/client/output"
-	"github.com/kolesa-team/go-webp/encoder"
 	"github.com/kolesa-team/go-webp/webp"
+	"golang.org/x/image/draw"
 )
 
-var _ Converter = (*WebpConverter)(nil)
+var _ Converter = (*JpegConverter)(nil)
 
-type WebpConverter struct {
-	maxWidth     int
-	maxHeight    int
-	quality      int
-	outputClient output.OutputClient
+type JpegConverter struct {
+	maxWidth      int
+	maxHeight     int
+	extensionName string
+	quality       int
+	outputClient  output.OutputClient
 }
 
-func NewWebpConverter(cfg *config.ConverterConfig) (Converter, error) {
-	if cfg.Type != "webp" {
-		return nil, fmt.Errorf("invalid storage type for WebpConverter")
+func NewJpegConverter(cfg *config.ConverterConfig) (Converter, error) {
+	if cfg.Type != "jpeg" {
+		return nil, fmt.Errorf("invalid storage type for JpegConverter")
 	}
-	webpCfg := cfg.Config.(*config.WebpConfig)
+	jpegCfg := cfg.Config.(*config.JpegConfig)
 
 	outputClient, err := output.NewOutputClientMap[cfg.Output.Storage.Type](&cfg.Output)
 	if err != nil {
 		return nil, fmt.Errorf("fail to initialize output client: %w", err)
 	}
 
-	return &WebpConverter{webpCfg.Size.MaxWidth, webpCfg.Size.MaxHeight, webpCfg.Quality, outputClient}, nil
+	extensionName := ".jpg"
+	if jpegCfg.ExtensionName != "" {
+		extensionName = "." + jpegCfg.ExtensionName
+	}
+
+	return &JpegConverter{jpegCfg.Size.MaxWidth, jpegCfg.Size.MaxHeight, extensionName, jpegCfg.Quality, outputClient}, nil
 }
 
-func (p *WebpConverter) Process(inputMetadata *input.MetadataStruct, reader io.Reader, outputName string) error {
+func (p *JpegConverter) Process(inputMetadata *input.MetadataStruct, reader io.Reader, outputName string) error {
 	var src image.Image
 
-	writer, err := p.outputClient.GetWriter(outputName, inputMetadata, "image/webp")
+	writer, err := p.outputClient.GetWriter(outputName, inputMetadata, "image/jpeg")
 	if err != nil {
 		return fmt.Errorf("fail to initialize writer for output: %w", err)
 	}
@@ -70,11 +75,6 @@ func (p *WebpConverter) Process(inputMetadata *input.MetadataStruct, reader io.R
 		return fmt.Errorf("unsupported content type: %s", inputMetadata.ContentType)
 	}
 
-	opts, err := encoder.NewLossyEncoderOptions(encoder.PresetDefault, float32(p.quality))
-	if err != nil {
-		return fmt.Errorf("create webp encoder options: %w", err)
-	}
-
 	xCoef := 1.0
 	if p.maxWidth > 0 {
 		xCoef = float64(p.maxWidth) / float64(src.Bounds().Max.X)
@@ -91,28 +91,24 @@ func (p *WebpConverter) Process(inputMetadata *input.MetadataStruct, reader io.R
 	}
 
 	if minCoef >= 1.0 {
-		return webp.Encode(writer, src, opts)
+		return jpeg.Encode(writer, src, &jpeg.Options{Quality: p.quality})
 	}
 
 	dst := image.NewRGBA(image.Rect(0, 0, int(float64(src.Bounds().Max.X)*minCoef+0.5), int(float64(src.Bounds().Max.Y)*minCoef+0.5)))
 	draw.CatmullRom.Scale(dst, dst.Rect, src, src.Bounds(), draw.Over, nil)
 
-	return webp.Encode(writer, dst, opts)
+	return jpeg.Encode(writer, dst, &jpeg.Options{Quality: p.quality})
 }
 
-func (p *WebpConverter) DeductOutputPath(inputPath string) string {
-	pathParts := strings.Split(inputPath, ".")
-	if len(pathParts) < 2 {
-		return inputPath + ".webp"
-	}
-	pathParts[len(pathParts)-1] = "webp"
-	return strings.Join(pathParts, ".")
+func (p *JpegConverter) DeductOutputPath(inputPath string) string {
+	withoutExt, _ := strings.CutSuffix(inputPath, filepath.Ext(inputPath))
+	return withoutExt + p.extensionName
 }
 
-func (p *WebpConverter) ReadMetadata(path string) (*output.MetadataStruct, error) {
+func (p *JpegConverter) ReadMetadata(path string) (*output.MetadataStruct, error) {
 	return p.outputClient.ReadMetadata(path)
 }
 
-func (p *WebpConverter) IsMissing(path string) bool {
+func (p *JpegConverter) IsMissing(path string) bool {
 	return p.outputClient.IsMissing(path)
 }

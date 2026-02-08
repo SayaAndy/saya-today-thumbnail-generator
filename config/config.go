@@ -14,7 +14,6 @@ type Config struct {
 	Converters           []ConverterConfig `json:"Converters" validate:"required"`
 	MaxProcessThreads    int               `json:"MaxProcessThreads" validate:"required,min=1"`
 	MaxPreProcessThreads int               `json:"MaxPreProcessThreads" validate:"min=1;gtefield=MaxProcessThreads"`
-	ForceRewrite         bool              `json:"ForceRewrite" validate:"required"`
 	LogLevel             slog.Level        `json:"LogLevel" validate:"required"`
 }
 
@@ -63,7 +62,7 @@ func (sc *InputStorageConfig) UnmarshalJSON(data []byte) error {
 }
 
 type ConverterConfig struct {
-	Type   string       `json:"Type" validate:"required,oneof=webp"`
+	Type   string       `json:"Type" validate:"required,oneof=webp jpeg"`
 	Config any          `json:"Config" validate:"required"`
 	Output OutputConfig `json:"Output" validate:"required"`
 }
@@ -89,6 +88,12 @@ func (pc *ConverterConfig) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("unmarshal WebpConfig: %w", err)
 		}
 		pc.Config = &webpConfig
+	case "jpeg":
+		var jpegConfig JpegConfig
+		if err := json.Unmarshal(tmp.Config, &jpegConfig); err != nil {
+			return fmt.Errorf("unmarshal JpegConfig: %w", err)
+		}
+		pc.Config = &jpegConfig
 	default:
 		return fmt.Errorf("unsupported storage type: %s", tmp.Type)
 	}
@@ -98,12 +103,18 @@ func (pc *ConverterConfig) UnmarshalJSON(data []byte) error {
 
 type WebpConfig struct {
 	Quality int        `json:"Quality" validate:"required,min=1,max=100"`
-	Size    SizeConfig `json:"Size" validate:"required"`
+	Size    SizeConfig `json:"Size"`
+}
+
+type JpegConfig struct {
+	ExtensionName string     `json:"ExtensionName" validate:"alpha"`
+	Quality       int        `json:"Quality" validate:"required,min=1,max=100"`
+	Size          SizeConfig `json:"Size"`
 }
 
 type SizeConfig struct {
-	MaxWidth  int `json:"MaxWidth" validate:"required,min=0"`
-	MaxHeight int `json:"MaxHeight" validate:"required,min=0"`
+	MaxWidth  int `json:"MaxWidth"`
+	MaxHeight int `json:"MaxHeight"`
 }
 
 type OutputStorageConfig struct {
@@ -157,7 +168,8 @@ type InputLocalUnixConfig struct {
 }
 
 type OutputConfig struct {
-	Storage OutputStorageConfig `json:"Storage" validate:"required"`
+	RewriteOn string              `json:"RewriteOn" validate:"oneof=Never UnequalHashInCache Always"`
+	Storage   OutputStorageConfig `json:"Storage" validate:"required"`
 }
 
 type OutputLocalUnixConfig struct {
@@ -177,6 +189,12 @@ func LoadConfig(path string, config *Config) error {
 
 	if err = json.Unmarshal(expandedFileBytes, config); err != nil {
 		return err
+	}
+
+	for i := range config.Converters {
+		if config.Converters[i].Output.RewriteOn == "" {
+			config.Converters[i].Output.RewriteOn = "UnequalHashInCache"
+		}
 	}
 
 	return nil

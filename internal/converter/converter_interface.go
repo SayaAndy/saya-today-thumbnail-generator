@@ -17,4 +17,5 @@ type Converter interface {
 
 var NewConverterMap = map[string]func(cfg *config.ConverterConfig) (Converter, error){
 	"webp": NewWebpConverter,
+	"jpeg": NewJpegConverter,
 }

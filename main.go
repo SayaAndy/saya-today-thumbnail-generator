@@ -128,26 +128,38 @@ func main() {
 		}
 	}
 
+	select {
+	case <-sigTermChan:
+		generalLogger.Info("exiting due to termination signal")
+		os.Exit(130)
+	default:
+	}
+
 	processSemaphore := make(chan struct{}, cfg.MaxProcessThreads)
 	queueSemaphore := make(chan struct{}, cfg.MaxPreProcessThreads)
 	var wg sync.WaitGroup
 	wg.Add(fileCount)
 
+	processTerminating := false
+
 	for i, file := range files {
 		queueSemaphore <- struct{}{}
-		go func(index int, inputName string) {
-			fileLogger := generalLogger.With(slog.String("input_path", inputName), slog.Int("file_index", index))
 
-			threadSigTermChannel := make(chan os.Signal, 1)
-			signal.Notify(threadSigTermChannel, os.Interrupt, syscall.SIGTERM)
+		select {
+		case <-sigTermChan:
+			generalLogger.Info("exiting due to termination signal")
+			processTerminating = true
+		default:
+		}
 
+		go func(index int, inputName string, earlyTerminate bool) {
 			defer func() { <-queueSemaphore; wg.Done() }()
 
-			select {
-			case <-threadSigTermChannel:
-				fileLogger.Info("exiting due to termination signal")
+			fileLogger := generalLogger.With(slog.String("input_path", inputName), slog.Int("file_index", index))
+
+			if earlyTerminate {
+				fileLogger.Info("skip processing file (process is terminating)")
 				return
-			default:
 			}
 
 			var inputMetadata *input.MetadataStruct
@@ -185,21 +197,31 @@ func main() {
 					}
 				}
 
-				if !cfg.ForceRewrite && !conv.IsMissing(outputName) {
-					outputMetadata, err := conv.ReadMetadata(outputName)
-					if err != nil {
-						convLogger.Warn("fail to read metadata of (supposedly existing) output file", slog.String("error", err.Error()))
+				switch cfg.Converters[j].Output.RewriteOn {
+				case "Never":
+					if !conv.IsMissing(outputName) {
+						convLogger.Info("skip already existing file")
 						continue
 					}
-					originalInputHash = outputMetadata.HashOriginal
-					if inputMetadata.Hash == originalInputHash {
-						convLogger.Info("skip already processed file (based on equal hash)", slog.String("input_hash", inputMetadata.Hash))
-						cacheMapMutex.Lock()
-						cacheMap[id][converterHashes[j]] = struct{}{}
-						cacheMapMutex.Unlock()
-						continue
+				case "UnequalHashInCache":
+					if !conv.IsMissing(outputName) {
+						outputMetadata, err := conv.ReadMetadata(outputName)
+						if err != nil {
+							convLogger.Warn("fail to read metadata of (supposedly existing) output file", slog.String("error", err.Error()))
+							continue
+						}
+						originalInputHash = outputMetadata.HashOriginal
+						if inputMetadata.Hash == originalInputHash {
+							convLogger.Info("skip already processed file (based on equal hash)", slog.String("input_hash", inputMetadata.Hash))
+							cacheMapMutex.Lock()
+							cacheMap[id][converterHashes[j]] = struct{}{}
+							cacheMapMutex.Unlock()
+							continue
+						}
 					}
+				case "Always":
 				}
+
 				convertersToLaunch = append(convertersToLaunch, j)
 			}
 
@@ -239,7 +261,7 @@ func main() {
 				cacheMap[id][converterHashes[convIndex]] = struct{}{}
 				cacheMapMutex.Unlock()
 			}
-		}(i, file)
+		}(i, file, processTerminating)
 	}
 
 	wg.Wait()

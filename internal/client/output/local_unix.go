@@ -44,7 +44,7 @@ func NewLocalUnixOutputClient(cfg *config.OutputConfig) (OutputClient, error) {
 	return &LocalUnixOutputClient{localCfg.Path, uint32(fpm), uint32(dpm), localCfg.AttributesImplementation}, nil
 }
 
-func (c *LocalUnixOutputClient) GetWriter(path string, inputMetadata *input.MetadataStruct) (io.WriteCloser, error) {
+func (c *LocalUnixOutputClient) GetWriter(path string, inputMetadata *input.MetadataStruct, _ string) (io.WriteCloser, error) {
 	pathSegments := strings.Split(path, "/")
 	dirpath := strings.Join(pathSegments[0:len(pathSegments)-1], "/")
 	if err := os.MkdirAll(c.path+dirpath, os.FileMode(c.dirMode)); err != nil {

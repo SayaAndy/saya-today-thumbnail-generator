@@ -9,7 +9,7 @@ import (
 )
 
 type OutputClient interface {
-	GetWriter(path string, inputMetadata *input.MetadataStruct) (io.WriteCloser, error)
+	GetWriter(path string, inputMetadata *input.MetadataStruct, outputContentType string) (io.WriteCloser, error)
 	ReadMetadata(path string) (*MetadataStruct, error)
 	IsMissing(path string) bool
 }
