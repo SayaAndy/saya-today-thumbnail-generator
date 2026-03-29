@@ -239,10 +239,14 @@ func main() {
 				return
 			}
 
-			fileContent := make([]byte, inputMetadata.Size)
-			if _, err = reader.Read(fileContent); err != nil {
+			fileContent, err := io.ReadAll(reader)
+			if err != nil {
 				fileLogger.Warn("fail to read content of input file", slog.String("error", err.Error()))
 				return
+			} else if int64(len(fileContent)) != inputMetadata.Size {
+				fileLogger.Warn("the downloaded file seems to be missing some of its content",
+					slog.Int("actual_size_bytes", len(fileContent)),
+					slog.Int64("expected_size_bytes", inputMetadata.Size))
 			}
 			reader.Close()
 
