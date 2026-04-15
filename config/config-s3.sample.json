@@ -1,0 +1,53 @@
+{
+    "MaxProcessThreads": 4,
+    "MaxPreProcessThreads": 12,
+    "LogLevel": "info",
+    "Input": {
+        "Storage": {
+            "Type": "s3",
+            "Config": {
+                "BucketName": "my-photos",
+                "Region": "",
+                "Prefix": "full/",
+                "Endpoint": "https://minio.local",
+                "UsePathStyle": true,
+                "AccessKeyID": "${AWS_ACCESS_KEY_ID}",
+                "SecretAccessKey": "${AWS_SECRET_ACCESS_KEY}"
+            }
+        },
+        "KnownExtensions": [
+            "jpg",
+            "jpeg",
+            "png"
+        ],
+        "CacheProcessed": true,
+        "CacheProcessedCsvPath": "cache.csv"
+    },
+    "Converters": [
+        {
+            "Type": "webp",
+            "Config": {
+                "Quality": 80,
+                "Size": {
+                    "MaxWidth": 320,
+                    "MaxHeight": 0
+                }
+            },
+            "Output": {
+                "RewriteOn": "UnequalHashInCache",
+                "Storage": {
+                    "Type": "s3",
+                    "Config": {
+                        "BucketName": "my-photos",
+                        "Region": "",
+                        "Prefix": "webp-320p/",
+                        "Endpoint": "https://minio.local",
+                        "UsePathStyle": true,
+                        "AccessKeyID": "${AWS_ACCESS_KEY_ID}",
+                        "SecretAccessKey": "${AWS_SECRET_ACCESS_KEY}"
+                    }
+                }
+            }
+        }
+    ]
+}

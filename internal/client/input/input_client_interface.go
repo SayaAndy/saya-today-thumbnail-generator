@@ -27,5 +27,6 @@ type MetadataStruct struct {
 
 var NewInputClientMap = map[string]func(cfg *config.InputConfig) (InputClient, error){
 	"b2":         NewB2InputClient,
+	"s3":         NewS3InputClient,
 	"local-unix": NewLocalUnixInputClient,
 }

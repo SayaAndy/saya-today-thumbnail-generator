@@ -28,5 +28,6 @@ type MetadataStruct struct {
 
 var NewOutputClientMap = map[string]func(cfg *config.OutputConfig) (OutputClient, error){
 	"b2":         NewB2OutputClient,
+	"s3":         NewS3OutputClient,
 	"local-unix": NewLocalUnixOutputClient,
 }

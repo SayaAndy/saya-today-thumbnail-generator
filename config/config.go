@@ -25,7 +25,7 @@ type InputConfig struct {
 }
 
 type InputStorageConfig struct {
-	Type   string `json:"Type" validate:"required,oneof=b2 local-unix"`
+	Type   string `json:"Type" validate:"required,oneof=b2 s3 local-unix"`
 	Config any    `json:"Config" validate:"required"`
 }
 
@@ -48,6 +48,12 @@ func (sc *InputStorageConfig) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("unmarshal B2Config: %w", err)
 		}
 		sc.Config = &b2Config
+	case "s3":
+		var s3Config S3Config
+		if err := json.Unmarshal(tmp.Config, &s3Config); err != nil {
+			return fmt.Errorf("unmarshal S3Config: %w", err)
+		}
+		sc.Config = &s3Config
 	case "local-unix":
 		var localUnixConfig InputLocalUnixConfig
 		if err := json.Unmarshal(tmp.Config, &localUnixConfig); err != nil {
@@ -118,7 +124,7 @@ type SizeConfig struct {
 }
 
 type OutputStorageConfig struct {
-	Type   string `json:"Type" validate:"required,oneof=b2 local-unix"`
+	Type   string `json:"Type" validate:"required,oneof=b2 s3 local-unix"`
 	Config any    `json:"Config" validate:"required"`
 }
 
@@ -141,6 +147,12 @@ func (sc *OutputStorageConfig) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("unmarshal B2Config: %w", err)
 		}
 		sc.Config = &b2Config
+	case "s3":
+		var s3Config S3Config
+		if err := json.Unmarshal(tmp.Config, &s3Config); err != nil {
+			return fmt.Errorf("unmarshal S3Config: %w", err)
+		}
+		sc.Config = &s3Config
 	case "local-unix":
 		var localUnixConfig OutputLocalUnixConfig
 		if err := json.Unmarshal(tmp.Config, &localUnixConfig); err != nil {
@@ -160,6 +172,16 @@ type B2Config struct {
 	Prefix         string `json:"Prefix"`
 	KeyID          string `json:"KeyID"`
 	ApplicationKey string `json:"ApplicationKey"`
+}
+
+type S3Config struct {
+	BucketName     string `json:"BucketName" validate:"required,min=1"`
+	Region         string `json:"Region" validate:"required,min=1"`
+	Prefix         string `json:"Prefix"`
+	Endpoint       string `json:"Endpoint"`
+	UsePathStyle   bool   `json:"UsePathStyle"`
+	AccessKeyID    string `json:"AccessKeyID"`
+	SecretAccessKey string `json:"SecretAccessKey"`
 }
 
 type InputLocalUnixConfig struct {
